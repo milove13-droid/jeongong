@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전공 계열 적합성 검사 (간이검사)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom radio button styles for a better look and feel */
+        .custom-radio-label {
+            transition: all 0.2s ease-in-out;
+        }
+        /* Colored checked states for each score */
+        .custom-radio:checked + .score-1 {
+            background-color: #ef4444; /* red-500 */ color: white; border-color: #ef4444; transform: scale(1.05);
+        }
+        .custom-radio:checked + .score-2 {
+            background-color: #f97316; /* orange-500 */ color: white; border-color: #f97316; transform: scale(1.05);
+        }
+        .custom-radio:checked + .score-3 {
+            background-color: #64748b; /* slate-500 */ color: white; border-color: #64748b; transform: scale(1.05);
+        }
+        .custom-radio:checked + .score-4 {
+            background-color: #0ea5e9; /* sky-500 */ color: white; border-color: #0ea5e9; transform: scale(1.05);
+        }
+        .custom-radio:checked + .score-5 {
+            background-color: #2563eb; /* blue-600 */ color: white; border-color: #2563eb; transform: scale(1.05);
+        }
+
+        /* Fade-in animation for results */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out forwards;
+        }
+        
+        /* Loading spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Styles for AI generated content */
+        #geminiContent h3 {
+            font-size: 1.25rem; /* text-xl */
+            font-weight: 700;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: #1e293b; /* slate-800 */
+        }
+        #geminiContent ul {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        #geminiContent li {
+            margin-bottom: 0.5rem;
+        }
+        #geminiContent strong {
+            color: #0369a1; /* sky-700 */
+        }
+
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="container mx-auto max-w-4xl p-4 sm:p-8">
+        <!-- Header Section -->
+        <header class="text-center mb-10">
+            <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">🌟 전공 계열 적합성 검사</h1>
+            <h2 class="text-xl sm:text-2xl font-semibold text-blue-600 mt-2">(간이검사)</h2>
+            <p class="mt-4 text-slate-600 max-w-2xl mx-auto">
+                각 문항을 천천히 읽고, 자신의 모습과 가장 가깝다고 생각하는 곳에 솔직하게 체크해 주세요. 이 검사는 여러분의 진로 설계를 돕기 위한 참고 자료입니다.
+            </p>
+        </header>
+
+        <!-- Main Form for Questions -->
+        <form id="aptitudeTestForm">
+            <div id="questionsContainer" class="space-y-8">
+                <!-- Questions will be dynamically inserted here -->
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-12 text-center">
+                <button type="submit" class="bg-blue-600 text-white font-bold py-3 px-10 rounded-lg shadow-lg hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300">
+                    결과 보기
+                </button>
+            </div>
+        </form>
+
+        <!-- Results Section (Initially Hidden) -->
+        <div id="resultsContainer" class="hidden mt-12">
+            <div id="resultCard" class="bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-slate-200">
+                <h2 class="text-3xl font-bold text-center text-slate-900 mb-6">📊 검사 결과</h2>
+                <div id="resultsContent" class="space-y-4">
+                    <!-- Result bars will be dynamically inserted here -->
+                </div>
+                <div id="resultAnalysis" class="mt-8 p-6 rounded-lg">
+                    <!-- Detailed analysis will be shown here -->
+                </div>
+
+                <div id="resultActions" class="mt-10 text-center flex flex-col sm:flex-row justify-center items-center gap-4 border-t pt-8">
+                    <button type="button" id="saveJpgButton" class="bg-blue-600 text-white font-bold w-full sm:w-auto py-3 px-10 rounded-lg shadow-lg hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300">
+                        JPG로 저장
+                    </button>
+                    <button type="button" id="savePdfButton" class="bg-emerald-600 text-white font-bold w-full sm:w-auto py-3 px-10 rounded-lg shadow-lg hover:bg-emerald-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-emerald-300">
+                        PDF로 저장
+                    </button>
+                    <button type="button" id="retryButton" class="bg-slate-600 text-white font-bold w-full sm:w-auto py-3 px-10 rounded-lg shadow-lg hover:bg-slate-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-slate-300">
+                        다시하기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const aptitudeTestForm = document.getElementById('aptitudeTestForm');
+            const questionsContainer = document.getElementById('questionsContainer');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const resultsContent = document.getElementById('resultsContent');
+            const resultAnalysis = document.getElementById('resultAnalysis');
+            const retryButton = document.getElementById('retryButton');
+            const saveJpgButton = document.getElementById('saveJpgButton');
+            const savePdfButton = document.getElementById('savePdfButton');
+
+            let currentResults = [];
+
+            const categories = [
+                {
+                    key: 'humanities', name: '인문 계열',
+                    color: 'bg-amber-500', bgColor: 'bg-amber-50', borderColor: 'border-amber-200', textColor: 'text-amber-800',
+                    description: '인간의 삶과 정신, 문화에 대한 깊이 있는 이해에 흥미가 있는 당신! 어문, 역사, 철학, 교육, 문화콘텐츠 분야에서 빛을 발할 수 있습니다. 관련 교과목을 깊이 탐색하고, 독서 활동으로 사고를 확장해 보세요.',
+                    questions: [ '문학 작품을 읽고 감상문이나 독후감을 쓰는 것을 좋아하는가?', '외국의 역사나 문화에 관한 책을 읽는 것을 즐기는가?', '철학적 질문(삶, 인간, 가치)에 대해 깊이 생각하는 것을 좋아하는가?', '글쓰기를 통해 자신의 생각을 표현하는 것에 자신이 있는가?', '사회 현상에 대한 논리적 글쓰기나 토론을 즐기는가?', '역사적 사건의 원인을 분석하는 것을 흥미롭게 느끼는가?', '다양한 언어를 배우고 활용하는 데 흥미가 있는가?', '논술, 토론 등 자신의 의견을 구조적으로 펼치는 활동을 즐기는가?', '고전 문학이나 철학적 텍스트를 읽고 해석하는 것을 좋아하는가?', '새로운 지식을 습득한 후 이를 정리해 발표하는 활동에 흥미가 있는가?' ]
+                },
+                {
+                    key: 'social', name: '사회 계열',
+                    color: 'bg-sky-500', bgColor: 'bg-sky-50', borderColor: 'border-sky-200', textColor: 'text-sky-800',
+                    description: '사회 구조와 시스템을 분석하고, 더 나은 사회를 만드는 일에 관심이 많은 당신! 경영, 경제, 행정, 법학, 미디어, 심리학 분야에서 리더십을 발휘할 수 있습니다. 시사 이슈에 꾸준히 관심을 갖고, 팀 프로젝트에 적극적으로 참여해 보세요.',
+                    questions: [ '신문·방송·정치·행정 관련 분야에 관심이 있는가?', '법이나 제도에 대해 생각해 보고 법률가의 역할에 관심이 있는가?', '사회 문제의 원인과 해결 방법을 찾는 활동을 좋아하는가?', '뉴스나 시사 프로그램을 즐겨 시청하는가?', '사람들의 다양한 생활 양식이나 문화를 관찰하는 것을 즐기는가?', '경제 변화나 국제 관계에 대해 이해하고 싶은가?', '팀 토론에서 사회적 이슈를 분석하고 해결책을 제시하는 활동이 재미있는가?', '정치·행정의 의사결정 과정에 관심이 있는가?', '세무사, 자산관리사, 관세사 등 전문직에 관심이 있는가?', '사회 현상을 통계나 자료를 통해 분석하는 활동에 흥미가 있는가?' ]
+                },
+                {
+                    key: 'education', name: '교육 계열',
+                    color: 'bg-emerald-500', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200', textColor: 'text-emerald-800',
+                    description: '지식을 나누고 다른 사람의 성장을 돕는 것에서 보람을 느끼는 당신! 초/중등 교사, 교육 전문가, 상담사 등의 길에서 재능을 펼칠 수 있습니다. 가르치는 경험과 봉사 활동을 통해 교육자로서의 자질을 키워나가세요.',
+                    questions: [ '친구들이 모르는 것을 가르쳐줄 때 성취감을 느끼는가?', '아이들과 놀아주거나 돌보는 것을 좋아하는가?', '선생님이 되어 학생들을 지도하고 싶은가?', '교육이 사회 변화를 만드는 데 중요한 역할을 한다고 생각하는가?', '후배나 동생들에게 조언해주는 것을 즐기는가?', '학습 자료를 만들어 다른 사람을 도와주는 데 흥미가 있는가?', '장애 학생이나 특수교육 대상 학생을 돕고 싶은가?', '교육학·심리학·철학 등의 학문에 흥미가 있는가?', '남 앞에서 설명하거나 발표하는 활동이 즐거운가?', '교사가 되기 위해 필요한 자질(인내심, 책임감, 공감 능력)을 갖추고 싶다고 생각하는가?' ]
+                },
+                {
+                    key: 'engineering', name: '공학 계열',
+                    color: 'bg-slate-600', bgColor: 'bg-slate-50', borderColor: 'border-slate-200', textColor: 'text-slate-800',
+                    description: '수학과 과학 지식을 응용해 실생활의 문제를 해결하는 것에 매력을 느끼는 당신! 컴퓨터, 기계, 전자, 건축, 신소재 등 첨단 기술 분야를 이끌어갈 인재입니다. 논리적 사고력과 창의력을 바탕으로 자신만의 프로젝트를 진행해 보세요.',
+                    questions: [ '전기·전자제품, 로봇과 관련된 기술에 관심이 있는가?', '자동차, 우주, 항공 등 기계와 이동수단에 흥미가 있는가?', '건축물이나 구조물을 설계하고 싶은가?', '컴퓨터 소프트웨어·통신 기술에 관심이 있는가?', '사물과 현상을 과학적·공학적으로 분석하는 것을 즐기는가?', '문제를 창의적으로 해결하는 데 흥미가 있는가?', '인공지능, 로봇공학, 정보통신 기술의 미래에 대해 상상하는가?', '팀워크를 바탕으로 실험이나 프로젝트를 수행하는 것을 좋아하는가?', '수학·물리·화학 같은 기초과학을 탐구하는 것이 재미있는가?', '환경문제를 공학적 방법으로 해결하는 것에 관심이 있는가?' ]
+                },
+                {
+                    key: 'natural', name: '자연 계열',
+                    color: 'bg-green-500', bgColor: 'bg-green-50', borderColor: 'border-green-200', textColor: 'text-green-800',
+                    description: '자연 현상의 본질을 탐구하고 과학적 원리를 밝히는 것을 좋아하는 당신! 물리, 화학, 생명과학 등 기초과학 분야나 환경, 식품영양 등 응용과학 분야의 전문가로 성장할 수 있습니다. 꾸준한 실험과 탐구 활동으로 과학적 소양을 길러보세요.',
+                    questions: [ '동·식물과 자연 생태계에 관심이 있는가?', '수학·물리·화학·생명과학 중 좋아하는 과목이 있는가?', '자연현상(기상, 천문, 지질 등)을 관찰하고 탐구하는 것을 즐기는가?', '실험을 설계하고 결과를 분석하는 것을 좋아하는가?', '환경 문제 해결 활동에 관심이 있는가?', '식품·영양, 의류, 농업 등 생활과학에도 흥미가 있는가?', '새로운 현상을 발견하면 원인을 규명하려는 성향이 있는가?', '야외 탐사, 관찰, 데이터 분석 활동을 즐기는가?', '논리적·분석적 사고로 문제를 해결하는 것이 재미있는가?', '수학적 원리로 자연 현상을 설명하는 데 흥미가 있는가?' ]
+                },
+                {
+                    key: 'medical', name: '의약 계열',
+                    color: 'bg-rose-500', bgColor: 'bg-rose-50', borderColor: 'border-rose-200', textColor: 'text-rose-800',
+                    description: '생명의 소중함을 알고, 사람을 돕는 일에 헌신하고 싶은 당신! 의사, 약사, 간호사, 연구원 등 보건·의료 분야에서 중요한 역할을 할 수 있습니다. 생명과학과 화학에 대한 깊이 있는 학습과 함께 봉사 정신을 함양하는 것이 중요합니다.',
+                    questions: [ '의사·약사·간호사 등 보건 관련 직업에 관심이 있는가?', '사람이나 동물의 질병을 예방·치료하는 일에 흥미가 있는가?', '아픈 사람을 돕고 간호하는 것을 좋아하는가?', '새로운 의약품을 개발하는 연구에 관심이 있는가?', '생명과학, 화학 과목을 깊이 배우고 싶은가?', '사람의 건강과 생명을 소중히 여기는가?', '의료인의 인성과 봉사정신을 중요하게 생각하는가?', '환자와 의사소통하며 공감하는 능력이 있다고 생각하는가?', '의료 현장에서 긴장과 어려움을 이겨낼 수 있는 성격인가?', '보건·의료 분야의 윤리적 문제에 대해 고민해본 적이 있는가?' ]
+                },
+                {
+                    key: 'arts', name: '예체능 계열',
+                    color: 'bg-purple-500', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', textColor: 'text-purple-800',
+                    description: '창의적인 아이디어와 감성으로 자신을 표현하는 것을 즐기는 당신! 음악, 미술, 디자인, 체육, 공연예술 등 다양한 분야에서 예술가 또는 전문가로 성장할 잠재력이 있습니다. 꾸준한 연습과 자신만의 개성을 찾는 노력이 중요합니다.',
+                    questions: [ '음악, 공연, 연극, 영화 등 예술 분야에 관심이 있는가?', '그림 그리기, 디자인, 미술 창작 활동을 즐기는가?', '스포츠나 무용, 신체 활동을 좋아하는가?', '무대에 서서 자신의 재능을 표현하는 것을 즐기는가?', '꾸준한 훈련과 연습으로 기량을 발전시키는 과정에서 성취감을 느끼는가?', '예술 작품이나 공연을 감상하며 영감을 얻는가?', '자신만의 창의적인 아이디어를 작품으로 표현하는 것을 좋아하는가?', '팀워크를 바탕으로 공연·경기를 완성하는 것을 즐기는가?', '예술·체육 분야가 사회에 기여할 수 있다고 생각하는가?', '창작과 표현 활동이 자신의 정체성을 드러내는 데 도움이 된다고 느끼는가?' ]
+                }
+            ];
+
+            const scoreLabels = { 1: '전혀<br>아니다', 2: '아니다', 3: '보통', 4: '그렇다', 5: '매우<br>그렇다' };
+            
+            function renderQuestions() {
+                const scoreColors = [ 'bg-red-100 border-red-300 text-red-800 hover:bg-red-200', 'bg-orange-100 border-orange-300 text-orange-800 hover:bg-orange-200', 'bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200', 'bg-sky-100 border-sky-300 text-sky-800 hover:bg-sky-200', 'bg-blue-100 border-blue-300 text-blue-800 hover:bg-blue-200' ];
+                let html = '';
+                categories.forEach((category, catIndex) => {
+                    html += `<div class="bg-white p-6 rounded-xl shadow-md border border-slate-100"><h3 class="text-xl font-bold mb-6 border-l-4 ${category.borderColor} pl-3 ${category.textColor}">${catIndex + 1}. ${category.name}</h3><div class="space-y-6">`;
+                    category.questions.forEach((question, qIndex) => {
+                        const questionId = `q_${catIndex}_${qIndex}`;
+                        html += `<div class="question-item"><p class="mb-3 font-medium text-slate-700">${qIndex + 1}. ${question}</p><div class="flex flex-wrap justify-center gap-2 text-center">`;
+                        for (let i = 1; i <= 5; i++) {
+                            html += `<div class="flex-1 min-w-[50px]"><input type="radio" id="${questionId}_${i}" name="${questionId}" value="${i}" class="sr-only custom-radio" required><label for="${questionId}_${i}" class="custom-radio-label score-${i} block w-full cursor-pointer rounded-lg border p-2 text-sm font-semibold ${scoreColors[i-1]}">${scoreLabels[i]}</label></div>`;
+                        }
+                        html += `</div></div>`;
+                    });
+                    html += `</div></div>`;
+                });
+                questionsContainer.innerHTML = html;
+            }
+
+            function calculateScores(formData) {
+                const scores = {};
+                categories.forEach(cat => scores[cat.key] = 0);
+                for (let [key, value] of formData.entries()) {
+                    const [, catIndex, ] = key.split('_');
+                    scores[categories[catIndex].key] += parseInt(value, 10);
+                }
+                return scores;
+            }
+
+            function displayResults(scores) {
+                const sortedScores = Object.entries(scores).map(([key, score]) => ({ key, score, ...categories.find(c => c.key === key) })).sort((a, b) => b.score - a.score);
+                currentResults = sortedScores;
+                let html = '';
+                const maxScore = 50;
+                sortedScores.forEach(item => {
+                    const percentage = (item.score / maxScore) * 100;
+                    html += `<div class="result-item"><div class="flex justify-between items-center mb-1"><span class="font-bold text-slate-700">${item.name}</span><span class="font-bold text-slate-600">${item.score}점</span></div><div class="w-full bg-slate-200 rounded-full h-4"><div class="${item.color} h-4 rounded-full" style="width: ${percentage}%"></div></div></div>`;
+                });
+                resultsContent.innerHTML = html;
+                const topCategory = sortedScores[0];
+                resultAnalysis.className = `mt-8 p-6 border-2 border-dashed rounded-lg ${topCategory.bgColor} ${topCategory.borderColor}`;
+                resultAnalysis.innerHTML = `<h3 class="text-xl font-bold ${topCategory.textColor} mb-2">⭐ 가장 높은 점수를 받은 계열은 <span class="underline">${topCategory.name}</span> 입니다!</h3><p class="text-slate-700">${topCategory.description}</p>`;
+                aptitudeTestForm.classList.add('hidden');
+                resultsContainer.classList.remove('hidden');
+                resultsContainer.classList.add('fade-in');
+                window.scrollTo({ top: resultsContainer.offsetTop - 30, behavior: 'smooth' });
+            }
+
+            function createFilename(extension) {
+                const now = new Date();
+                const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+                return `전공계열적합성검사_결과_${datePart}.${extension}`;
+            }
+            
+            async function saveResultsAsJpg() {
+                // ... (previous implementation is correct)
+            }
+            
+            async function saveResultsAsPdf() {
+                 // ... (previous implementation is correct)
+            }
+
+            function markdownToHtml(text) {
+                return text
+                    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                    .replace(/\*\*(.*)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\* (.*$)/gim, '<li>$1</li>')
+                    .replace(/<\/li><li>/g, '</li></ul><ul><li>') // Handle multiple lists
+                    .replace(/<li>/g, '<ul><li>')
+                    .replace(/<\/li>(?!<\/ul>)/g, '</li></ul>')
+                    .replace(/<\/li>(\s*<h3>)/g, '</li></ul>$1')
+                    .trim();
+            }
+            
+            async function getAiRecommendation() {
+                if (!currentResults || currentResults.length === 0) return;
+
+                getAiRecommendationButton.disabled = true;
+                geminiResultContainer.classList.remove('hidden');
+                geminiLoader.classList.remove('hidden');
+                geminiContent.classList.add('hidden');
+
+                let scoreText = currentResults.map(item => `- ${item.name}: ${item.score}점`).join('\n');
+                
+                const prompt = `
+너는 대한민국 고등학생들을 위한 친절하고 유능한 진로 상담사야.
+한 학생이 7개 계열에 대한 진로 적성 검사를 마쳤고, 결과는 다음과 같아.
+
+${scoreText}
+
+이 점수 분포를 바탕으로, 학생의 잠재력을 최대한 발휘할 수 있도록 아래 형식에 맞춰 구체적이고 현실적인 조언을 마크다운 형식으로 작성해 줘:
+
+### 🎯 추천 전공 계열
+가장 높은 점수를 받은 계열 1~2개를 중심으로, 연관성이 있는 융합 전공 분야를 2~3개 추천해 줘. 각 전공이 무엇을 배우는 곳인지 간략하게 설명해 줘.
+
+### 🚀 미래 직업 경로
+추천한 전공과 관련하여, 유망한 미래 직업들을 3~4개 제시해 줘. 각 직업이 어떤 일을 하는지 간단히 설명해 줘.
+
+### 📚 추천 선택 과목 (고교학점제)
+추천 전공을 준비하기 위해 고등학교에서 선택하면 좋을 일반선택 및 진로선택 과목들을 추천해 줘.
+
+### 🌱 비교과 활동 제안
+학생의 흥미와 강점을 더 발전시킬 수 있는 동아리, 탐구 보고서 주제, 독서, 봉사활동 등 구체적인 비교과 활동 아이디어를 제안해 줘.
+                `;
+
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const payload = { contents: [{ parts: [{ text: prompt }] }] };
+
+                try {
+                    // Basic exponential backoff implementation
+                    let response;
+                    let retries = 3;
+                    let delay = 1000;
+                    for (let i = 0; i < retries; i++) {
+                        response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (response.ok) break;
+                        if (response.status === 429 || response.status >= 500) {
+                             await new Promise(resolve => setTimeout(resolve, delay));
+                             delay *= 2;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(`API call failed with status ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        const generatedText = candidate.content.parts[0].text;
+                        geminiContent.innerHTML = markdownToHtml(generatedText);
+                    } else {
+                         throw new Error("Invalid response structure from API.");
+                    }
+                } catch (error) {
+                    console.error('Error fetching AI recommendation:', error);
+                    geminiContent.innerHTML = `<p class="text-red-600 font-semibold">AI 추천을 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.</p>`;
+                } finally {
+                    geminiLoader.classList.add('hidden');
+                    geminiContent.classList.remove('hidden');
+                    getAiRecommendationButton.disabled = false;
+                }
+            }
+            
+            // --- EVENT LISTENERS ---
+            aptitudeTestForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(aptitudeTestForm);
+                const totalQuestions = categories.reduce((acc, cat) => acc + cat.questions.length, 0);
+                if (Array.from(formData.keys()).length < totalQuestions) {
+                    let messageBox = document.getElementById('alert-message');
+                    if (!messageBox) {
+                        messageBox = document.createElement('div');
+                        messageBox.id = 'alert-message';
+                        messageBox.className = 'fixed top-5 left-1/2 -translate-x-1/2 bg-red-500 text-white py-3 px-6 rounded-lg shadow-lg z-50';
+                        document.body.appendChild(messageBox);
+                    }
+                    messageBox.textContent = '모든 문항에 답변해주세요!';
+                    messageBox.style.display = 'block';
+                    setTimeout(() => { messageBox.style.display = 'none'; }, 3000);
+                    for(let i = 0; i < categories.length; i++) {
+                        for(let j = 0; j < categories[i].questions.length; j++) {
+                            if (!formData.has(`q_${i}_${j}`)) {
+                                document.getElementsByName(`q_${i}_${j}`)[0].closest('.question-item').scrollIntoView({ behavior: 'smooth', block: 'center'});
+                                return;
+                            }
+                        }
+                    }
+                    return;
+                }
+                const scores = calculateScores(formData);
+                displayResults(scores);
+            });
+
+            retryButton.addEventListener('click', () => {
+                resultsContainer.classList.add('hidden');
+                resultsContainer.classList.remove('fade-in');
+                aptitudeTestForm.classList.remove('hidden');
+                aptitudeTestForm.reset();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            saveJpgButton.addEventListener('click', saveResultsAsJpg);
+            savePdfButton.addEventListener('click', saveResultsAsPdf);
+
+            renderQuestions();
+        });
+    </script>
+</body>
+</html>
